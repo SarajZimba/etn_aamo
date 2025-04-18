@@ -40,6 +40,7 @@ class ProductPurchaseForm(BaseForm, forms.ModelForm):
     non_taxable_amount = forms.FloatField(initial=0.0)
 
     tax_amount = forms.FloatField(initial=0.0)
+    excise_duty_amount = forms.FloatField(initial=0.0, required=False)
     grand_total = forms.FloatField()
     amount_in_words = forms.CharField()
     payment_mode = forms.ChoiceField(
@@ -69,13 +70,6 @@ class ProductPurchaseForm(BaseForm, forms.ModelForm):
         self.fields["tax_amount"].label = "VAT Amount"
         self.fields["discount_amount"].widget.attrs["readonly"] = True
         self.fields["amount_in_words"].widget.attrs["readonly"] = True
-        # self.fields["debit_account"] = forms.ModelChoiceField( queryset=AccountLedger.objects.filter(account_chart=AccountChart.objects.filter(group="Purchases").first()))
-        # self.fields["debit_account"].widget.attrs = {
-        #     "tags":True,
-        #     "class":"form-select",
-        #     "data-control": "select2",
-        #     "data-placeholder": "Select Account",
-        # }
 
         self.fields["vendor"].widget.attrs = {
             "class":"form-select",
@@ -88,6 +82,7 @@ class ProductPurchaseForm(BaseForm, forms.ModelForm):
         model = ProductPurchase
         fields = [
             "product",
+            "excise_duty_amount",  # Add this
         ]
     
 

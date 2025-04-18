@@ -22,6 +22,7 @@ class BillForm(BaseForm, forms.ModelForm):
         required=False,
     )
     is_taxable = forms.BooleanField(required=False, initial=True)
+    excise_duty_applicable = forms.BooleanField(required=False, initial=True)
     payment_mode = forms.ChoiceField(
         choices=[
             ("", "-----------------"),
@@ -67,6 +68,7 @@ class BillForm(BaseForm, forms.ModelForm):
             "sub_total",
             "discount_amount",
             "is_taxable",
+            "excise_duty_applicable",
             "taxable_amount",
             "tax_amount",
             "grand_total",

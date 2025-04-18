@@ -11,6 +11,7 @@
       <input type="hidden" name="ledger_id_list" id="ledger-id-list">
       <input type="hidden" name="product_taxable_info" id="product_taxable_info">
       <input type="hidden" name="product_category_info" id="product_category_info">
+      <!-- <input type="hidden" name="excise_duty_amount" id="id_excise_duty_amount"> -->
 
       <div class="row">
 
@@ -53,10 +54,11 @@
                           <tr>
                             <th class="w-80px">Remove</th>
                             <th class="min-w-175px">Name</th>
-                            <th class="w-100px">Categroy</th>
+                            <th class="w-100px">Category</th>
                             <th class="w-85px">Rate</th>
                             <th class="min-w-100px">Quantity</th>
                             <th class="w-85px">Taxable</th>
+                            <th class="w-85px">Excise Duty Applicable</th>
                             <th class="w-80px">Total</th>
                             <th class="w-80px">Account</th>
                           </tr>
@@ -83,11 +85,6 @@
                   </div>
                     {% endfor %}
           </div>
-
-          <!-- <select class="ledger-select form-control" name="test_credit_ledger" required id="ledger_select_${id}" onchange="handleLedgerInput(this)" data-total="${total}" ${isDisabled ? 'disabled' : ''} >
-            <option value="${ledger}" selected>${ledger_name}</option>
-            ${ledgerOptions}
-      </select> -->
 
         {% csrf_token %}
 
@@ -174,39 +171,20 @@ const selectedLedgerId = [];
 
 let latestTotal = 0;
 
-// $('#ledger_select_' + id).on('change', function() {
-//     const selectedLedgerId = $(this).val();
-//     if (selectedLedgerId !== '------') {
-//         selectedLedgerIds.push(selectedLedgerId);
-//     }
-
-//     // Update the value of the hidden input field
-//     $('#ledger-id-list').val(selectedLedgerIds.join(','));
-// });
-
-
 $(document).ready(function() {
    $('#id_').focus();
    $('#div-id_grand_total').num2words();
 });
 
-// $('#id_product').select2({
-//   tags:true,
-//   placeholder: 'Select or Create Product'
-// })
 $('#id_product').select2({
   tags: true,
   placeholder: 'Select or Create Product',
 });
-// $('#ledger_select').select2({
-//   tags: true,
-//   placeholder: 'Select or Create Product',
-// });
-
 
   function calculatePrices(taxEdited=false){
           let taxableAmount = 0
           let nonTaxableAmount = 0
+          let exciseDutyAmount = 0; // New variable for excise duty
           let idarray = $("#bill_item .text-end")
                        .find("span") 
                        .map(function() { return this.id; }) 
@@ -220,12 +198,29 @@ $('#id_product').select2({
             const element = document.getElementById(e)
             const isTaxable = element.getAttribute('taxable')
             const total = parseFloat(element.innerHTML)
+            const productId = e.split('_').pop();
+
+          // Check if product has excise duty applicable
+          // const isExciseDutyApplicable = $(`#id_bill_item_${productId}`).data('excise_duty_applicable') === "true";
+          const isExciseDutyApplicable = element.getAttribute('excise_duty_applicable')
+          console.log("excise_duty_applicable", isExciseDutyApplicable)
             if(isTaxable === "true"){
-              taxableAmount += total
-            }else{
+
+                // taxableAmount += (total - exciseDuty);
+                taxableAmount += total
+            } 
+          else{
               nonTaxableAmount += total
             }
+          if (isExciseDutyApplicable === "true") {
+                const exciseDuty = total * 0.05; // 5% excise duty
+                exciseDutyAmount += exciseDuty;
+            }
+          else{
+            exciseDutyAmount = 0 
+          } 
           })
+
 
 
           $('#id_sub_total').val(taxableAmount+nonTaxableAmount)
@@ -243,7 +238,9 @@ $('#id_product').select2({
 
           $('#id_taxable_amount').val(taxableAmount.toFixed(2))
           $('#id_non_taxable_amount').val(nonTaxableAmount.toFixed(2))
-          let vatAmount = parseFloat(0.13 * taxableAmount).toFixed(2)
+          let taxplusexise = taxableAmount + exciseDutyAmount
+          // let vatAmount = parseFloat(0.13 * taxableAmount).toFixed(2)
+          let vatAmount = parseFloat(0.13 * taxplusexise).toFixed(2)
           if(taxEdited){
 
             vatAmount =  parseFloat($('#id_tax_amount').val()).toFixed(2)
@@ -251,9 +248,16 @@ $('#id_product').select2({
           }
           $('#id_tax_amount').val(vatAmount)
 
-          $('#id_grand_total').val(parseFloat(taxableAmount+nonTaxableAmount+parseFloat(vatAmount)).toFixed(2))
-
+          // $('#id_grand_total').val(parseFloat(taxableAmount+nonTaxableAmount+parseFloat(vatAmount)).toFixed(2))
+          // Calculate grand total (including excise duty)
+          const grandTotal = parseFloat(taxableAmount) + 
+                            parseFloat(nonTaxableAmount) + 
+                            parseFloat(vatAmount)  + parseFloat(exciseDutyAmount)
+                            // + parseFloat(exciseDutyAmount);
+          $('#id_grand_total').val(grandTotal.toFixed(2));
     $('#id_grand_total').keyup();
+    // Add excise duty to form data (you'll need to add a hidden input for this)
+    $('#id_excise_duty_amount').val(exciseDutyAmount.toFixed(2));
   }
 
   $('#id_product').on('change', async function() {
@@ -306,8 +310,9 @@ $('#id_product').select2({
           url:url, 
           type: "GET",
           success: function(data){
+                console.log("product_data", data)
                 const quantity = 1
-                const {title, price, is_taxable, ledger, ledger_name} = data
+                const {title, price, is_taxable, ledger, ledger_name, excise_duty_applicable} = data
                 const total = 0
 
                 const ledgerOptions = `{% for ledger in purchases_and_expenses_ledgers %}
@@ -366,9 +371,14 @@ $('#id_product').select2({
                       <span class="fw-bold cursor-pointer text-hover-primary fs-6 me-1">${is_taxable?'<span class="text-danger">YES<span>':'<span class="text-success">NO</span>'}</span>
                     </div>
                   </td>
+                  <td class="pe-0">
+                    <div class="d-flex align-items-center">
+                      <span class="fw-bold cursor-pointer text-hover-primary fs-6 me-1">${excise_duty_applicable?'<span class="text-danger">YES<span>':'<span class="text-success">NO</span>'}</span>
+                    </div>
+                  </td>
 
                   <td class="text-end">
-                    <span class="fw-bold text-primary fs-2" data-kt-pos-element="item-total" id="id_bill_item_total_${id}" taxable="${is_taxable}" data-total="${total}">${total}</span>
+                    <span class="fw-bold text-primary fs-2" data-kt-pos-element="item-total" id="id_bill_item_total_${id}" taxable="${is_taxable}" excise_duty_applicable="${excise_duty_applicable}" data-total="${total}">${total}</span>
                   </td>
                   <td class="col-md-2">
                     <select class="ledger-select form-control" name="test_credit_ledger" required id="ledger_select_${id}" onchange="handleLedgerInput(this)" data-total="${total}" ${isDisabled ? 'disabled' : ''}>

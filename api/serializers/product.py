@@ -44,7 +44,8 @@ class ProductSerializer(ModelSerializer):
             'cost_price',
             'discount_exempt',
             # 'stock_quantity',
-            'minimum_stock'
+            'minimum_stock',
+            "excise_duty_applicable"
 
         ]
     def get_ledger_name(self, obj):

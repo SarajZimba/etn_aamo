@@ -26,6 +26,7 @@ class Product(BaseModel):
     unit = models.CharField(null=True, max_length=100, blank=True)
     
     is_taxable = models.BooleanField(default=True)
+    excise_duty_applicable = models.BooleanField(default=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     image = models.ImageField(upload_to="product/images/", null=True, blank=True)
@@ -39,6 +40,7 @@ class Product(BaseModel):
     discount_exempt = models.BooleanField(default=False)
     ledger = models.ForeignKey('accounting.AccountLedger', null=True, blank=True, on_delete=models.SET_NULL)
     minimum_stock = models.PositiveIntegerField(default=0)
+
 
 
     def __str__(self):

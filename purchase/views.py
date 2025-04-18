@@ -73,13 +73,14 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
             subledger = AccountSubLedger.objects.create(sub_ledger_name=subledgername, ledger=debit_account, total_value=item_total)
             subledgertracking = AccountSubLedgerTracking.objects.create(subledger=subledger, new_amount=decimal.Decimal(item_total), value_changed=decimal.Decimal(item_total))
 
-    def create_accounting_multiple_ledger(self, debit_account_id, payment_mode:str, username:str, sub_total, tax_amount, vendor):
+    def create_accounting_multiple_ledger(self, debit_account_id, payment_mode:str, username:str, sub_total, tax_amount, vendor, excise_duty_amount):
         sub_total = decimal.Decimal(sub_total)
         tax_amount = decimal.Decimal(tax_amount)
-        total_amount =  sub_total+ tax_amount
+        total_amount =  sub_total+ tax_amount + excise_duty_amount
 
         cash_ledger = get_object_or_404(AccountLedger, ledger_name='Cash-In-Hand')
         vat_receivable = get_object_or_404(AccountLedger, ledger_name='VAT Receivable')
+        excise_duty_receivable = get_object_or_404(AccountLedger, ledger_name='Excise Duty Receivable')
         debit_account = get_object_or_404(AccountLedger, pk=int(debit_account_id))
         
         journal_entry = TblJournalEntry.objects.create(employee_name=username, journal_total = total_amount)
@@ -92,6 +93,11 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
             vat_receivable.total_value += tax_amount
             vat_receivable.save()
             update_cumulative_ledger_bill(vat_receivable)
+        if excise_duty_amount > 0:
+            TblDrJournalEntry.objects.create(journal_entry=journal_entry, particulars="Automatic: Excise Duty Receivable A/c Dr.", debit_amount=excise_duty_amount, ledger=excise_duty_receivable)
+            excise_duty_receivable.total_value += excise_duty_amount
+            excise_duty_receivable.save()
+            update_cumulative_ledger_bill(excise_duty_receivable)
         if payment_mode.lower().strip() == "credit":
             try:
                 vendor_ledger = AccountLedger.objects.get(ledger_name=vendor)
@@ -114,6 +120,7 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
     
     def form_valid(self, form):
         form_data = form.data 
+        print(form.data)
         bill_no = form_data.get('bill_no', None)
         bill_date = form_data.get('bill_date', None)
         pp_no = form_data.get('pp_no',None)
@@ -128,6 +135,7 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
         amount_in_words = form_data.get('amount_in_words')
         payment_mode = form_data.get('payment_mode')
         debit_account = form_data.get('debit_account')
+        excise_duty_amount = form_data.get('excise_duty_amount')
         # print(debit_account)
         purchase_object = Purchase(
             bill_no=bill_no,
@@ -238,6 +246,8 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
         # self.create_accounting(debit_account_id=debit_account, payment_mode=payment_mode, username=self.request.user.username, sub_total=sub_total, tax_amount=tax_amount, vendor=vendor_detail)
         sub_tax = decimal.Decimal(tax_amount)
         fraction_tax = sub_tax/no_of_items_sent
+        sub_excise_duty = decimal.Decimal(excise_duty_amount)
+        fraction_excise_duty = sub_excise_duty/no_of_items_sent
         print(fraction_tax)
         if product_ledger_info and len(product_ledger_info) > 0:
             product_ledgers = json.loads(product_ledger_info)
@@ -245,7 +255,7 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
             for product_id, ledger_info in product_ledgers.items():
                 ledger_id = int(ledger_info['ledgerId'])
                 total = float(ledger_info['total'])
-                self.create_accounting_multiple_ledger(debit_account_id=ledger_id, payment_mode=payment_mode, username=self.request.user.username, sub_total=total, tax_amount=fraction_tax, vendor=vendor_detail)
+                self.create_accounting_multiple_ledger(debit_account_id=ledger_id, payment_mode=payment_mode, username=self.request.user.username, sub_total=total, tax_amount=fraction_tax, vendor=vendor_detail, excise_duty_amount=fraction_excise_duty)
 
 
         return redirect('/purchase/')
