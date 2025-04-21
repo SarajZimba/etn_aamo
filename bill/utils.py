@@ -85,6 +85,7 @@ def create_journal_for_bill(instance):
     tax_amount = Decimal(instance.tax_amount)
     discount_amount = Decimal(instance.discount_amount)
     invoice_number = instance.invoice_number
+    excise_duty_amount = Decimal(instance.excise_duty_amount)
   
     sale_ledger = AccountLedger.objects.get(ledger_name='Sales')
     journal_entry = TblJournalEntry.objects.create(employee_name='Created Automatically during Sale', journal_total=(grand_total-discount_amount))
@@ -112,6 +113,14 @@ def create_journal_for_bill(instance):
         update_cumulative_ledger_bill(vat_payable)
 
         TblCrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"To VAT Payable", ledger=vat_payable, credit_amount=tax_amount)
+    
+    if excise_duty_amount > 0:
+        excise_duty_payable = AccountLedger.objects.get(ledger_name='Excise Duty Payable')
+        excise_duty_payable.total_value = excise_duty_payable.total_value + excise_duty_amount
+        excise_duty_payable.save()
+        update_cumulative_ledger_bill(excise_duty_payable)
+
+        TblCrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"To Excise Duty Payable", ledger=excise_duty_payable, credit_amount=excise_duty_amount)
 
     if payment_mode == 'credit':
         account_chart = AccountChart.objects.get(group='Sundry Debtors')
@@ -126,13 +135,13 @@ def create_journal_for_bill(instance):
             create_cumulative_ledger_bill(dr_ledger)
 
         TblDrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"{instance.customer.name} A/C Dr", ledger=dr_ledger, debit_amount=grand_total)
-        TblCrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"To Sales", ledger=sale_ledger, credit_amount=(grand_total-tax_amount))
+        TblCrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"To Sales", ledger=sale_ledger, credit_amount=(grand_total-tax_amount-excise_duty_amount))
         
         
     elif payment_mode == "credit card":
         card_transaction_ledger = AccountLedger.objects.get(ledger_name='Card Transactions')
         TblDrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"Card Transaction A/C Dr", ledger=card_transaction_ledger, debit_amount=grand_total)
-        TblCrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"To Sales", ledger=sale_ledger, credit_amount=(grand_total-tax_amount))
+        TblCrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"To Sales", ledger=sale_ledger, credit_amount=(grand_total-tax_amount-excise_duty_amount))
         card_transaction_ledger.total_value += grand_total
         card_transaction_ledger.save()
         update_cumulative_ledger_bill(card_transaction_ledger)
@@ -141,7 +150,7 @@ def create_journal_for_bill(instance):
         mobile_payment = AccountLedger.objects.get(ledger_name='Mobile Payments')
 
         TblDrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"Mobile Payment A/C Dr", ledger=mobile_payment, debit_amount=grand_total)
-        TblCrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"To Sales", ledger=sale_ledger, credit_amount=(grand_total-tax_amount))
+        TblCrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"To Sales", ledger=sale_ledger, credit_amount=(grand_total-tax_amount-excise_duty_amount))
         mobile_payment.total_value += grand_total
         mobile_payment.save()
         update_cumulative_ledger_bill(mobile_payment)
@@ -153,9 +162,9 @@ def create_journal_for_bill(instance):
         update_cumulative_ledger_bill(cash_ledger)
 
         TblDrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"Sales from invoice number {invoice_number} Cash A/C Dr", ledger=cash_ledger, debit_amount=grand_total)
-        TblCrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"To Sales", ledger=sale_ledger, credit_amount=(grand_total-tax_amount))
+        TblCrJournalEntry.objects.create(journal_entry=journal_entry, particulars=f"To Sales", ledger=sale_ledger, credit_amount=(grand_total-tax_amount-excise_duty_amount))
 
-    sale_ledger.total_value += (grand_total-tax_amount)
+    sale_ledger.total_value += (grand_total-tax_amount-excise_duty_amount)
     sale_ledger.save()
     update_cumulative_ledger_bill(sale_ledger)
 

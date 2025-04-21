@@ -115,6 +115,100 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
             cash_ledger.save()
             update_cumulative_ledger_bill(cash_ledger)
 
+    def create_accounting_single_ledger(self, ledger_totals, payment_mode: str, username: str, 
+                                    tax_amount: decimal.Decimal, excise_duty_amount: decimal.Decimal, 
+                                    vendor: str):
+        """
+        Create a single journal entry for all product ledgers
+        ledger_totals: dict of {ledger_id: total_amount}
+        """
+        # Calculate grand total
+        sub_total = sum(decimal.Decimal(total) for total in ledger_totals.values())
+        total_amount = sub_total + tax_amount + excise_duty_amount
+
+        # Get required ledgers
+        cash_ledger = get_object_or_404(AccountLedger, ledger_name='Cash-In-Hand')
+        vat_receivable = get_object_or_404(AccountLedger, ledger_name='VAT Receivable')
+        excise_duty_receivable = get_object_or_404(AccountLedger, ledger_name='Excise Duty Receivable')
+        
+        # Create single journal entry
+        journal_entry = TblJournalEntry.objects.create(
+            employee_name=username, 
+            journal_total=total_amount
+        )
+        
+        # Create debit entries for each product ledger
+        for ledger_id, amount in ledger_totals.items():
+            ledger = get_object_or_404(AccountLedger, pk=int(ledger_id))
+            TblDrJournalEntry.objects.create(
+                journal_entry=journal_entry,
+                particulars=f"Automatic: {ledger.ledger_name} A/c Dr.",
+                debit_amount=decimal.Decimal(amount),
+                ledger=ledger
+            )
+            # Update ledger balance
+            ledger.total_value += decimal.Decimal(amount)
+            ledger.save()
+            update_cumulative_ledger_bill(ledger)
+        
+        # Add tax and excise duty entries if applicable
+        if tax_amount > 0:
+            TblDrJournalEntry.objects.create(
+                journal_entry=journal_entry,
+                particulars="Automatic: VAT Receivable A/c Dr.",
+                debit_amount=tax_amount,
+                ledger=vat_receivable
+            )
+            vat_receivable.total_value += tax_amount
+            vat_receivable.save()
+            update_cumulative_ledger_bill(vat_receivable)
+        
+        if excise_duty_amount > 0:
+            TblDrJournalEntry.objects.create(
+                journal_entry=journal_entry,
+                particulars="Automatic: Excise Duty Receivable A/c Dr.",
+                debit_amount=excise_duty_amount,
+                ledger=excise_duty_receivable
+            )
+            excise_duty_receivable.total_value += excise_duty_amount
+            excise_duty_receivable.save()
+            update_cumulative_ledger_bill(excise_duty_receivable)
+        
+        # Create credit entry
+        if payment_mode.lower().strip() == "credit":
+            try:
+                vendor_ledger = AccountLedger.objects.get(ledger_name=vendor)
+            except AccountLedger.DoesNotExist:
+                chart = AccountChart.objects.get(group__iexact='Sundry Creditors')
+                vendor_ledger = AccountLedger.objects.create(
+                    ledger_name=vendor,
+                    total_value=total_amount,
+                    is_editable=True,
+                    account_chart=chart
+                )
+                create_cumulative_ledger_bill(vendor_ledger)
+            
+            vendor_ledger.total_value += total_amount
+            vendor_ledger.save()
+            update_cumulative_ledger_bill(vendor_ledger)
+            
+            TblCrJournalEntry.objects.create(
+                journal_entry=journal_entry,
+                particulars=f"Automatic: To {vendor_ledger.ledger_name} A/c",
+                credit_amount=total_amount,
+                ledger=vendor_ledger
+            )
+        else:
+            TblCrJournalEntry.objects.create(
+                journal_entry=journal_entry,
+                particulars=f"Automatic: To {cash_ledger.ledger_name} A/c",
+                credit_amount=total_amount,
+                ledger=cash_ledger
+            )
+            cash_ledger.total_value -= total_amount
+            cash_ledger.save()
+            update_cumulative_ledger_bill(cash_ledger)
+
     def form_invalid(self, form) -> HttpResponse:
         return self.form_valid(form)
     
@@ -249,14 +343,35 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
         sub_excise_duty = decimal.Decimal(excise_duty_amount)
         fraction_excise_duty = sub_excise_duty/no_of_items_sent
         print(fraction_tax)
+        # if product_ledger_info and len(product_ledger_info) > 0:
+        #     product_ledgers = json.loads(product_ledger_info)
+            
+        #     for product_id, ledger_info in product_ledgers.items():
+        #         ledger_id = int(ledger_info['ledgerId'])
+        #         total = float(ledger_info['total'])
+        #         self.create_accounting_multiple_ledger(debit_account_id=ledger_id, payment_mode=payment_mode, username=self.request.user.username, sub_total=total, tax_amount=fraction_tax, vendor=vendor_detail, excise_duty_amount=fraction_excise_duty)
+        # Collect all ledger totals first
+        ledger_totals = {}
         if product_ledger_info and len(product_ledger_info) > 0:
             product_ledgers = json.loads(product_ledger_info)
-            
             for product_id, ledger_info in product_ledgers.items():
-                ledger_id = int(ledger_info['ledgerId'])
+                ledger_id = ledger_info['ledgerId']
                 total = float(ledger_info['total'])
-                self.create_accounting_multiple_ledger(debit_account_id=ledger_id, payment_mode=payment_mode, username=self.request.user.username, sub_total=total, tax_amount=fraction_tax, vendor=vendor_detail, excise_duty_amount=fraction_excise_duty)
-
+                if ledger_id in ledger_totals:
+                    ledger_totals[ledger_id] += total
+                else:
+                    ledger_totals[ledger_id] = total
+        
+        # Create single journal entry with all ledgers
+        if ledger_totals:
+            self.create_accounting_single_ledger(
+                ledger_totals=ledger_totals,
+                payment_mode=payment_mode,
+                username=self.request.user.username,
+                tax_amount=decimal.Decimal(tax_amount),
+                excise_duty_amount=decimal.Decimal(excise_duty_amount),
+                vendor=vendor_detail
+            )
 
         return redirect('/purchase/')
     

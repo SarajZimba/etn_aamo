@@ -121,31 +121,91 @@
           calculatePrices()
   })
 
-  function calculatePrices(){
-          let idarray = $("#bill_item .text-end")
-                       .find("span") 
-                       .map(function() { return this.id; }) 
-                       .get(); 
-          let sub_total = idarray.map(e=>$(`#${e}`).html()).reduce((total, current) => {
-                  return parseFloat(total) + parseFloat(current);
-              }, 0);
+  // function calculatePrices(){
+  //         let idarray = $("#bill_item .text-end")
+  //                      .find("span") 
+  //                      .map(function() { return this.id; }) 
+  //                      .get(); 
+  //         let sub_total = idarray.map(e=>$(`#${e}`).html()).reduce((total, current) => {
+  //                 return parseFloat(total) + parseFloat(current);
+  //             }, 0);  
           
-          const is_taxable = $('#id_is_taxable').val()
-      if(is_taxable==="true" || is_taxable ==="on"){
-          $('#id_sub_total').val(parseFloat(sub_total).toFixed(2))
-          let discount_amount = $('#id_discount_amount').val()
-          let taxable_amount = $('#id_taxable_amount').val(parseFloat(sub_total- discount_amount).toFixed(2))
-          let tax_amount = $('#id_tax_amount').val(parseFloat(0.13 * taxable_amount.val()).toFixed(2))
-          $('#id_grand_total').val(parseFloat(parseFloat(taxable_amount.val())+ parseFloat(tax_amount.val())).toFixed(2))
-      }else{
-          $('#id_sub_total').val(parseFloat(sub_total).toFixed(2))
-          let discount_amount = $('#id_discount_amount').val()
-          let taxable_amount = $('#id_taxable_amount').val(0)
-          let tax_amount = $('#id_tax_amount').val(0)
-          $('#id_grand_total').val(parseFloat(sub_total).toFixed(2))
-      }
+  //         const is_taxable = $('#id_is_taxable').val()
+  //     if(is_taxable==="true" || is_taxable ==="on"){
+  //         $('#id_sub_total').val(parseFloat(sub_total).toFixed(2))
+  //         let discount_amount = $('#id_discount_amount').val()
+  //         let taxable_amount = $('#id_taxable_amount').val(parseFloat(sub_total- discount_amount).toFixed(2))
+  //         let tax_amount = $('#id_tax_amount').val(parseFloat(0.13 * taxable_amount.val()).toFixed(2))
+  //         $('#id_grand_total').val(parseFloat(parseFloat(taxable_amount.val())+ parseFloat(tax_amount.val())).toFixed(2))
+  //     }else{
+  //         $('#id_sub_total').val(parseFloat(sub_total).toFixed(2))
+  //         let discount_amount = $('#id_discount_amount').val()
+  //         let taxable_amount = $('#id_taxable_amount').val(0)
+  //         let tax_amount = $('#id_tax_amount').val(0)
+  //         $('#id_grand_total').val(parseFloat(sub_total).toFixed(2))
+  //     }
+  //   $('#id_grand_total').keyup();
+  // }
+
+  function calculatePrices(){
+    let sub_total = 0;
+    let taxableAmount = 0;
+    let nonTaxableAmount = 0;
+    let exciseDutyAmount = 0;
+    
+    // Get all product totals
+    $("#bill_item tr").each(function() {
+        const productId = $(this).attr('id').split('_').pop();
+        const totalElement = $(this).find(`#id_bill_item_total_${productId}`);
+        const total = parseFloat(totalElement.text());
+        // const isTaxable = totalElement.attr('taxable') === "true";
+        // const is_taxable = $('#id_is_taxable').val()
+        // const isTaxable = $(this).data('excise-duty') === true;
+        const hasExciseDuty = $(this).data('excise-duty') === true;
+        
+        sub_total += total;
+        
+        if (hasExciseDuty) {
+            const exciseDuty = total * 0.05; // 5% excise duty
+            exciseDutyAmount += exciseDuty;
+            // taxableAmount += total;
+        } else {
+            nonTaxableAmount += total;
+        }
+        // console.log("isTaxable", is_taxable)
+        // if (isTaxable) {
+        //     taxableAmount += total;
+        // }
+        // else{
+        //   nonTaxableAmount += total;
+        // }
+    });
+
+    $('#id_sub_total').val(sub_total.toFixed(2));
+    $('#id_excise_duty_amount').val(exciseDutyAmount.toFixed(2));
+    
+    const is_taxable = $('#id_is_taxable').val();
+    if(is_taxable === "true" || is_taxable === "on"){
+        let discount_amount = parseFloat($('#id_discount_amount').val()) || 0;
+        // let taxable_amount = $('#id_taxable_amount').val(parseFloat(sub_total- discount_amount).toFixed(2))
+        let taxable_amount = parseFloat(sub_total - discount_amount + exciseDutyAmount);
+
+        // let taxable_amount = taxableAmount - discount_amount;
+        
+        $('#id_taxable_amount').val(taxable_amount.toFixed(2));
+        let tax_amount = parseFloat(0.13 * taxable_amount).toFixed(2);
+        $('#id_tax_amount').val(tax_amount);
+        
+        let grand_total = parseFloat(sub_total) + parseFloat(tax_amount) + parseFloat(exciseDutyAmount);
+        $('#id_grand_total').val(grand_total.toFixed(2));
+    } else {
+        $('#id_taxable_amount').val(0);
+        $('#id_tax_amount').val(0);
+        $('#id_grand_total').val((grand_total).toFixed(2));
+    }
+    
     $('#id_grand_total').keyup();
-  }
+}
 
   $('#id_customer').on('change', function() {
     let pk = this.value 
@@ -170,11 +230,11 @@
           type: "GET",
           success: function(data){
                 const quantity = 1
-                const {title,price} = data
+                const {title,price,excise_duty_applicable} = data
                 const total = price * quantity
                 console.log(data)
                 new_data=`
-                <tr data-kt-pos-element="item" data-kt-pos-item-price="33" id="id_bill_item_${id}">
+                <tr data-kt-pos-element="item" data-kt-pos-item-price="33" id="id_bill_item_${id}" data-excise-duty="${excise_duty_applicable}">
                   <td class="pe-0">
                     <div class="d-flex align-items-center">
                       <span class="fw-bold text-gray-800 cursor-pointer text-hover-primary fs-6 me-1">${title}</span>

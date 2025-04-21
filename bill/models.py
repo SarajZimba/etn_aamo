@@ -185,6 +185,7 @@ class Bill(BaseModel):
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     taxable_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    excise_duty_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     grand_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     service_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
