@@ -181,84 +181,163 @@ $('#id_product').select2({
   placeholder: 'Select or Create Product',
 });
 
-  function calculatePrices(taxEdited=false){
-          let taxableAmount = 0
-          let nonTaxableAmount = 0
-          let exciseDutyAmount = 0; // New variable for excise duty
-          let idarray = $("#bill_item .text-end")
-                       .find("span") 
-                       .map(function() { return this.id; }) 
-                       .get(); 
+  // function calculatePrices(taxEdited=false){
+  //         let taxableAmount = 0
+  //         let nonTaxableAmount = 0
+  //         let exciseDutyAmount = 0; // New variable for excise duty
+  //         let idarray = $("#bill_item .text-end")
+  //                      .find("span") 
+  //                      .map(function() { return this.id; }) 
+  //                      .get(); 
 
-          let sub_total = idarray.map(e=>$(`#${e}`).html()).reduce((total, current) => {
-                  return parseFloat(total) + parseFloat(current);
-              }, 0);
+  //         let sub_total = idarray.map(e=>$(`#${e}`).html()).reduce((total, current) => {
+  //                 return Number(parseFloat(total) + parseFloat(current)).toFixed(2);
+  //             }, 0);
           
-          idarray.forEach(e=>{
-            const element = document.getElementById(e)
-            const isTaxable = element.getAttribute('taxable')
-            const total = parseFloat(element.innerHTML)
-            const productId = e.split('_').pop();
+  //         idarray.forEach(e=>{
+  //           const element = document.getElementById(e)
+  //           const isTaxable = element.getAttribute('taxable')
+  //           const total = parseFloat(element.innerHTML)
+  //           const productId = e.split('_').pop();
 
-          // Check if product has excise duty applicable
-          // const isExciseDutyApplicable = $(`#id_bill_item_${productId}`).data('excise_duty_applicable') === "true";
-          const isExciseDutyApplicable = element.getAttribute('excise_duty_applicable')
-          console.log("excise_duty_applicable", isExciseDutyApplicable)
-            if(isTaxable === "true"){
+  //         // Check if product has excise duty applicable
+  //         // const isExciseDutyApplicable = $(`#id_bill_item_${productId}`).data('excise_duty_applicable') === "true";
+  //         const isExciseDutyApplicable = element.getAttribute('excise_duty_applicable')
+  //         console.log("excise_duty_applicable", isExciseDutyApplicable)
+  //           if(isTaxable === "true"){
 
-                // taxableAmount += (total - exciseDuty);
-                taxableAmount += total
-            } 
-          else{
-              nonTaxableAmount += total
+  //               // taxableAmount += (total - exciseDuty);
+  //               taxableAmount += total
+  //           } 
+  //         else{
+  //             nonTaxableAmount += total
+  //           }
+  //         if (isExciseDutyApplicable === "true") {
+  //               const exciseDuty = total * 0.05; // 5% excise duty
+  //               exciseDutyAmount += exciseDuty;
+  //           }
+  //         else{
+  //           exciseDutyAmount = 0 
+  //         } 
+  //         })
+
+
+
+  //         $('#id_sub_total').val(taxableAmount+nonTaxableAmount)
+  //         const subTotal = parseFloat($('#id_sub_total').val())
+
+
+  //         const discountPercentage = parseInt($('#id_discount_percentage').val())
+  //         const discountAmount = discountPercentage/100 * subTotal
+  //         $('#id_discount_amount').val(subTotal*(discountPercentage/100))
+
+          
+  //         taxableAmount -= discountPercentage/100*taxableAmount
+  //         nonTaxableAmount -= discountPercentage/100*nonTaxableAmount
+
+
+  //         $('#id_non_taxable_amount').val(nonTaxableAmount.toFixed(2))
+  //         let taxplusexise = taxableAmount + exciseDutyAmount
+
+  //         $('#id_taxable_amount').val(taxplusexise.toFixed(2))
+  //         // let vatAmount = parseFloat(0.13 * taxableAmount).toFixed(2)
+  //         let vatAmount = parseFloat(0.13 * taxplusexise).toFixed(2)
+  //         if(taxEdited){
+
+  //           vatAmount =  parseFloat($('#id_tax_amount').val()).toFixed(2)
+
+  //         }
+  //         $('#id_tax_amount').val(vatAmount)
+
+  //         // $('#id_grand_total').val(parseFloat(taxableAmount+nonTaxableAmount+parseFloat(vatAmount)).toFixed(2))
+  //         // Calculate grand total (including excise duty)
+  //         const grandTotal = parseFloat(taxableAmount) + 
+  //                           parseFloat(nonTaxableAmount) + 
+  //                           parseFloat(vatAmount)  + parseFloat(exciseDutyAmount)
+  //                           // + parseFloat(exciseDutyAmount);
+  //         $('#id_grand_total').val(grandTotal.toFixed(2));
+  //   $('#id_grand_total').keyup();
+  //   // Add excise duty to form data (you'll need to add a hidden input for this)
+  //   $('#id_excise_duty_amount').val(exciseDutyAmount.toFixed(2));
+  // }
+
+
+  function calculatePrices(taxEdited=false){
+    let taxableAmount = 0
+    let nonTaxableAmount = 0
+    let exciseDutyAmount = 0;
+    let taxableExciseDuty = 0; // Only excise duty for taxable products
+    let idarray = $("#bill_item .text-end")
+                 .find("span") 
+                 .map(function() { return this.id; }) 
+                 .get(); 
+
+    let sub_total = idarray.map(e=>$(`#${e}`).html()).reduce((total, current) => {
+            return Number(parseFloat(total) + parseFloat(current)).toFixed(2);
+        }, 0);
+    
+    idarray.forEach(e=>{
+        const element = document.getElementById(e)
+        const isTaxable = element.getAttribute('taxable') === "true";
+        const total = parseFloat(element.innerHTML)
+        const productId = e.split('_').pop();
+        const isExciseDutyApplicable = element.getAttribute('excise_duty_applicable') === "true";
+        
+        if(isTaxable){
+            taxableAmount += total;
+            // Calculate excise duty for taxable products only
+            if (isExciseDutyApplicable) {
+                const exciseDuty = total * 0.05;
+                exciseDutyAmount += exciseDuty;
+                taxableExciseDuty += exciseDuty;
             }
-          if (isExciseDutyApplicable === "true") {
-                const exciseDuty = total * 0.05; // 5% excise duty
+        } else {
+            nonTaxableAmount += total;
+            // Calculate excise duty separately for non-taxable products
+            if (isExciseDutyApplicable) {
+                const exciseDuty = total * 0.05;
                 exciseDutyAmount += exciseDuty;
             }
-          else{
-            exciseDutyAmount = 0 
-          } 
-          })
+        }
+    })
 
+    $('#id_sub_total').val(taxableAmount + nonTaxableAmount)
+    const subTotal = parseFloat($('#id_sub_total').val())
 
+    const discountPercentage = parseInt($('#id_discount_percentage').val())
+    const discountAmount = discountPercentage/100 * subTotal
+    $('#id_discount_amount').val(subTotal*(discountPercentage/100))
 
-          $('#id_sub_total').val(taxableAmount+nonTaxableAmount)
-          const subTotal = parseFloat($('#id_sub_total').val())
+    // Apply discount proportionally
+    taxableAmount -= discountPercentage/100*taxableAmount
+    nonTaxableAmount -= discountPercentage/100*nonTaxableAmount
+    // Also apply discount to excise duty portion
+    taxableExciseDuty -= discountPercentage/100*taxableExciseDuty
 
-
-          const discountPercentage = parseInt($('#id_discount_percentage').val())
-          const discountAmount = discountPercentage/100 * subTotal
-          $('#id_discount_amount').val(subTotal*(discountPercentage/100))
-
-          
-          taxableAmount -= discountPercentage/100*taxableAmount
-          nonTaxableAmount -= discountPercentage/100*nonTaxableAmount
-
-
-          $('#id_taxable_amount').val(taxableAmount.toFixed(2))
-          $('#id_non_taxable_amount').val(nonTaxableAmount.toFixed(2))
-          let taxplusexise = taxableAmount + exciseDutyAmount
-          // let vatAmount = parseFloat(0.13 * taxableAmount).toFixed(2)
-          let vatAmount = parseFloat(0.13 * taxplusexise).toFixed(2)
-          if(taxEdited){
-
-            vatAmount =  parseFloat($('#id_tax_amount').val()).toFixed(2)
-
-          }
-          $('#id_tax_amount').val(vatAmount)
-
-          // $('#id_grand_total').val(parseFloat(taxableAmount+nonTaxableAmount+parseFloat(vatAmount)).toFixed(2))
-          // Calculate grand total (including excise duty)
-          const grandTotal = parseFloat(taxableAmount) + 
-                            parseFloat(nonTaxableAmount) + 
-                            parseFloat(vatAmount)  + parseFloat(exciseDutyAmount)
-                            // + parseFloat(exciseDutyAmount);
-          $('#id_grand_total').val(grandTotal.toFixed(2));
+    $('#id_non_taxable_amount').val(nonTaxableAmount.toFixed(2))
+    
+    // Taxable amount = taxable products + excise duty (only for taxable products)
+    const totalTaxableAmount = taxableAmount + taxableExciseDuty;
+    
+    // Calculate VAT on taxable amount (including excise duty for taxable products only)
+    let vatAmount = parseFloat(0.13 * totalTaxableAmount).toFixed(2)
+    if(taxEdited){
+        vatAmount = parseFloat($('#id_tax_amount').val()).toFixed(2)
+    }
+    
+    $('#id_taxable_amount').val(totalTaxableAmount.toFixed(2))
+    $('#id_tax_amount').val(vatAmount)
+    
+    // Calculate grand total (includes all excise duty, regardless of taxable status)
+    const grandTotal = parseFloat(taxableAmount) + 
+                      parseFloat(nonTaxableAmount) + 
+                      parseFloat(vatAmount) + 
+                      parseFloat(exciseDutyAmount);
+    
+    $('#id_grand_total').val(grandTotal.toFixed(2));
     $('#id_grand_total').keyup();
-    // Add excise duty to form data (you'll need to add a hidden input for this)
     $('#id_excise_duty_amount').val(exciseDutyAmount.toFixed(2));
-  }
+}
 
   $('#id_product').on('change', async function() {
     let pk = this.value;

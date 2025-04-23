@@ -35,12 +35,11 @@ class ProductPurchaseForm(BaseForm, forms.ModelForm):
     sub_total = forms.FloatField()
     discount_percentage = forms.ChoiceField(choices=DISCOUNT_PERCENTAGE_CHOICES)
     discount_amount = forms.FloatField(initial=0.0)
-
+    excise_duty_amount = forms.FloatField(initial=0.0, required=False)
     taxable_amount = forms.FloatField(initial=0.0)
     non_taxable_amount = forms.FloatField(initial=0.0)
 
     tax_amount = forms.FloatField(initial=0.0)
-    excise_duty_amount = forms.FloatField(initial=0.0, required=False)
     grand_total = forms.FloatField()
     amount_in_words = forms.CharField()
     payment_mode = forms.ChoiceField(
@@ -56,7 +55,7 @@ class ProductPurchaseForm(BaseForm, forms.ModelForm):
     )
 
 
-    field_order = [ 'bill_no', 'bill_date', 'pp_no', 'vendor', 'product', 'sub_total', 'discount_percentage', 'discount_amount', 'taxable_amount',
+    field_order = [ 'bill_no', 'bill_date', 'pp_no', 'vendor', 'product', 'sub_total', 'discount_percentage', 'discount_amount', 'excise_duty_amount', 'taxable_amount',
                 'non_taxable_amount', 'tax_amount', 'grand_total', 'amount_in_words', 'payment_mode', 'debit_account']
 
 

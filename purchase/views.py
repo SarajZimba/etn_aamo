@@ -237,7 +237,8 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
             discount_percentage=discount_percentage,discount_amount=discount_amount,
             taxable_amount=taxable_amount, non_taxable_amount=non_taxable_amount,
             tax_amount=tax_amount, grand_total=grand_total,
-            amount_in_words=amount_in_words, payment_mode=payment_mode
+            amount_in_words=amount_in_words, payment_mode=payment_mode, 
+            excise_duty_amount=decimal.Decimal(excise_duty_amount)
         )
         purchase_object.save()
 
@@ -334,7 +335,7 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
 
         TblpurchaseEntry.objects.create(
             bill_no=bill_no, bill_date=bill_date, pp_no=pp_no, vendor_name=vendor_name, vendor_pan=vendor_pan,
-            item_name=item_name, quantity=total_quantity, amount=grand_total, tax_amount=tax_amount, non_tax_purchase=non_taxable_amount
+            item_name=item_name, quantity=total_quantity, amount=grand_total, tax_amount=tax_amount, non_tax_purchase=non_taxable_amount, excise_duty_amount=decimal.Decimal(excise_duty_amount)
         )
         vendor_detail = str(vendor.pk)+' '+ vendor_name
         # self.create_accounting(debit_account_id=debit_account, payment_mode=payment_mode, username=self.request.user.username, sub_total=sub_total, tax_amount=tax_amount, vendor=vendor_detail)
