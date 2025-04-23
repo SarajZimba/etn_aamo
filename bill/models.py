@@ -95,6 +95,7 @@ class TablReturnEntry(models.Model):
     exportNumber = models.CharField(default="0", max_length=20)
     exportDate = models.CharField(default="0", max_length=20)
     unit = models.CharField(default="-", max_length=20)
+    excise_duty_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     class Meta:
         db_table = "tblreturnentry"

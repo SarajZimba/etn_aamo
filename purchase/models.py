@@ -27,6 +27,8 @@ class Purchase(BaseModel):
     tax_amount = models.DecimalField(max_digits=9, decimal_places=2, null=True, blank=True)
     amount_in_words = models.CharField(max_length=255)
     payment_mode = models.CharField(max_length=30)
+    excise_duty_amount = models.DecimalField(max_digits=9, decimal_places=2, null=True, blank=True)
+
 
     def __str__(self):
         return f'Purchased from {self.vendor.name} total = {self.grand_total}'
@@ -80,6 +82,8 @@ class TblpurchaseEntry(models.Model):
     tax_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     non_tax_purchase = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     purchase_req_id = models.IntegerField(null=True, blank=True)
+    excise_duty_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
 
     class Meta:
         db_table = "tblpurchaseEntry"
@@ -99,7 +103,8 @@ class TblpurchaseReturn(models.Model):
     tax_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     non_tax_purchase = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     reason = models.CharField(max_length=200, null=True, blank=True)
-    
+    excise_duty_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
 
     class Meta:
         db_table = "tblpurchaseReturn"
