@@ -1,6 +1,12 @@
 {%extends 'base.html'%} {%load static%} {%block title%} Create {%endblock%}
 {% load tags %}
 {%block content %}
+
+<style>
+  #div-id_is_taxable {
+      display: none;
+  }
+</style>
 <div class="card p-2">
 
 <div class="card-body p-4 m-4">
@@ -147,20 +153,79 @@
   //   $('#id_grand_total').keyup();
   // }
 
-  function calculatePrices(){
+//   function calculatePrices(){
+//     let sub_total = 0;
+//     let taxableAmount = 0;
+//     let nonTaxableAmount = 0;
+//     let exciseDutyAmount = 0;
+    
+//     // Get all product totals
+//     $("#bill_item tr").each(function() {
+//         const productId = $(this).attr('id').split('_').pop();
+//         const totalElement = $(this).find(`#id_bill_item_total_${productId}`);
+//         const total = parseFloat(totalElement.text());
+//         // const isTaxable = totalElement.attr('taxable') === "true";
+//         // const is_taxable = $('#id_is_taxable').val()
+//         // const isTaxable = $(this).data('excise-duty') === true;
+//         const hasExciseDuty = $(this).data('excise-duty') === true;
+        
+//         sub_total += total;
+        
+//         if (hasExciseDuty) {
+//             const exciseDuty = total * 0.05; // 5% excise duty
+//             exciseDutyAmount += exciseDuty;
+//             // taxableAmount += total;
+//         } else {
+//             nonTaxableAmount += total;
+//         }
+//         // console.log("isTaxable", is_taxable)
+//         // if (isTaxable) {
+//         //     taxableAmount += total;
+//         // }
+//         // else{
+//         //   nonTaxableAmount += total;
+//         // }
+//     });
+
+//     $('#id_sub_total').val(sub_total.toFixed(2));
+//     $('#id_excise_duty_amount').val(exciseDutyAmount.toFixed(2));
+    
+//     const is_taxable = $('#id_is_taxable').val();
+//     if(is_taxable === "true" || is_taxable === "on"){
+//         let discount_amount = parseFloat($('#id_discount_amount').val()) || 0;
+//         // let taxable_amount = $('#id_taxable_amount').val(parseFloat(sub_total- discount_amount).toFixed(2))
+//         let taxable_amount = parseFloat(sub_total - discount_amount + exciseDutyAmount);
+
+//         // let taxable_amount = taxableAmount - discount_amount;
+        
+//         $('#id_taxable_amount').val(taxable_amount.toFixed(2));
+//         let tax_amount = parseFloat(0.13 * taxable_amount).toFixed(2);
+//         $('#id_tax_amount').val(tax_amount);
+        
+//         let grand_total = parseFloat(sub_total) + parseFloat(tax_amount) + parseFloat(exciseDutyAmount);
+//         $('#id_grand_total').val(grand_total.toFixed(2));
+//     } else {
+//         $('#id_taxable_amount').val(0);
+//         $('#id_tax_amount').val(0);
+//         $('#id_grand_total').val((grand_total).toFixed(2));
+//     }
+    
+//     $('#id_grand_total').keyup();
+// }
+
+function calculatePrices(){
     let sub_total = 0;
     let taxableAmount = 0;
     let nonTaxableAmount = 0;
     let exciseDutyAmount = 0;
+    let taxAmount = 0;
     
     // Get all product totals
     $("#bill_item tr").each(function() {
         const productId = $(this).attr('id').split('_').pop();
         const totalElement = $(this).find(`#id_bill_item_total_${productId}`);
         const total = parseFloat(totalElement.text());
-        // const isTaxable = totalElement.attr('taxable') === "true";
-        // const is_taxable = $('#id_is_taxable').val()
-        // const isTaxable = $(this).data('excise-duty') === true;
+        const isTaxable = $(this).data('is-taxable') === true; // Get from product data
         const hasExciseDuty = $(this).data('excise-duty') === true;
         
         sub_total += total;
@@ -168,41 +233,28 @@
         if (hasExciseDuty) {
             const exciseDuty = total * 0.05; // 5% excise duty
             exciseDutyAmount += exciseDuty;
-            // taxableAmount += total;
+            if (isTaxable) {
+                taxableAmount += (total + exciseDuty);
+                taxAmount += (total + exciseDuty) * 0.13; // Calculate tax for this product
+            }
+        } else if (isTaxable) {
+            taxableAmount += total;
+            taxAmount += total * 0.13; // Calculate tax for this product
         } else {
             nonTaxableAmount += total;
         }
-        // console.log("isTaxable", is_taxable)
-        // if (isTaxable) {
-        //     taxableAmount += total;
-        // }
-        // else{
-        //   nonTaxableAmount += total;
-        // }
     });
 
     $('#id_sub_total').val(sub_total.toFixed(2));
     $('#id_excise_duty_amount').val(exciseDutyAmount.toFixed(2));
     
-    const is_taxable = $('#id_is_taxable').val();
-    if(is_taxable === "true" || is_taxable === "on"){
-        let discount_amount = parseFloat($('#id_discount_amount').val()) || 0;
-        // let taxable_amount = $('#id_taxable_amount').val(parseFloat(sub_total- discount_amount).toFixed(2))
-        let taxable_amount = parseFloat(sub_total - discount_amount + exciseDutyAmount);
-
-        // let taxable_amount = taxableAmount - discount_amount;
-        
-        $('#id_taxable_amount').val(taxable_amount.toFixed(2));
-        let tax_amount = parseFloat(0.13 * taxable_amount).toFixed(2);
-        $('#id_tax_amount').val(tax_amount);
-        
-        let grand_total = parseFloat(sub_total) + parseFloat(tax_amount) + parseFloat(exciseDutyAmount);
-        $('#id_grand_total').val(grand_total.toFixed(2));
-    } else {
-        $('#id_taxable_amount').val(0);
-        $('#id_tax_amount').val(0);
-        $('#id_grand_total').val((grand_total).toFixed(2));
-    }
+    // Always calculate tax based on individual product flags
+    $('#id_taxable_amount').val(taxableAmount.toFixed(2));
+    $('#id_tax_amount').val(taxAmount.toFixed(2));
+    
+    // Calculate grand total (subtotal + tax + excise duty)
+    let grand_total = parseFloat(sub_total) + parseFloat(taxAmount) + parseFloat(exciseDutyAmount);
+    $('#id_grand_total').val(grand_total.toFixed(2));
     
     $('#id_grand_total').keyup();
 }
@@ -222,58 +274,114 @@
     }
   });
   
+  // async function getBillItem(id){
+  //       let new_data;
+  //       const url = `{% settings_value "HOST_URL" %}/api/product-detail/${id}` 
+  //       await $.ajax({
+  //         url:url, 
+  //         type: "GET",
+  //         success: function(data){
+  //               const quantity = 1
+  //               const {title,price,excise_duty_applicable, is_taxable} = data
+  //               const total = price * quantity
+  //               console.log(data)
+  //               new_data=`
+  //               <tr data-kt-pos-element="item" data-kt-pos-item-price="33" id="id_bill_item_${id}" data-excise-duty="${excise_duty_applicable}">
+  //                 <td class="pe-0">
+  //                   <div class="d-flex align-items-center">
+  //                     <span class="fw-bold text-gray-800 cursor-pointer text-hover-primary fs-6 me-1">${title}</span>
+  //                   </div>
+  //                 </td>
+  //                 <td class="pe-0">
+  //                   <div class="d-flex align-items-center">
+  //                     <input type="text" class="form-control" placeholder="Rate" id="id_bill_item_rate_${id}" name="id_bill_item_rate_${id}" value="${price}" onkeyup="handleRateChange(this)">
+  //                   </div>
+  //                 </td>
+  //                 <td class="pe-0">
+  //                   <div class="position-relative d-flex align-items-center" data-kt-dialer="true" data-kt-dialer-min="1" data-kt-dialer-max="10" data-kt-dialer-step="1" data-kt-dialer-decimals="0">
+  //                     <button type="button" class="btn btn-icon btn-sm btn-light btn-icon-gray-400" data-kt-dialer-control="decrease" id="${id}"  onclick="handleQuantity(this,'decrease')">
+  //                       <span class="svg-icon svg-icon-3x">
+  //                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  //                           <rect x="6" y="11" width="12" height="2" rx="1" fill="currentColor"></rect>
+  //                         </svg>
+  //                       </span>
+  //                     </button>
+  //               <input type="text" class="form-control border-0 text-center px-0 fs-3 fw-bold text-gray-800 w-30px" data-kt-dialer-control="input"   id="id_bill_item_quantity_${id}" onkeyup="handleQuantity(this,'set')" name="id_bill_item_quantity_${id}" value="${quantity}">
+  //                     <button type="button" class="btn btn-icon btn-sm btn-light btn-icon-gray-400" data-kt-dialer-control="increase" id="${id}" onclick="handleQuantity(this,'increase')">
+  //                       <span class="svg-icon svg-icon-3x">
+  //                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  //                           <rect opacity="0.5" x="11" y="18" width="12" height="2" rx="1" transform="rotate(-90 11 18)" fill="currentColor"></rect>
+  //                           <rect x="6" y="11" width="12" height="2" rx="1" fill="currentColor"></rect>
+  //                         </svg>
+  //                       </span>
+  //                     </button>
+  //                   </div>
+  //                 </td>
+  //                 <td class="text-end">
+  //                   <span class="fw-bold text-primary fs-2" data-kt-pos-element="item-total" id="id_bill_item_total_${id}">${total}</span>
+  //                 </td>
+  //               </tr>
+  //             `
+  //         }
+  //       })
+  //     return new_data
+  // }
+
   async function getBillItem(id){
-        let new_data;
-        const url = `{% settings_value "HOST_URL" %}/api/product-detail/${id}` 
-        await $.ajax({
-          url:url, 
-          type: "GET",
-          success: function(data){
-                const quantity = 1
-                const {title,price,excise_duty_applicable} = data
-                const total = price * quantity
-                console.log(data)
-                new_data=`
-                <tr data-kt-pos-element="item" data-kt-pos-item-price="33" id="id_bill_item_${id}" data-excise-duty="${excise_duty_applicable}">
-                  <td class="pe-0">
+    let new_data;
+    const url = `{% settings_value "HOST_URL" %}/api/product-detail/${id}` 
+    await $.ajax({
+        url:url, 
+        type: "GET",
+        success: function(data){
+            const quantity = 1
+            const {title, price, excise_duty_applicable, is_taxable} = data
+            const total = price * quantity
+            
+            new_data=`
+            <tr data-kt-pos-element="item" data-kt-pos-item-price="33" 
+                id="id_bill_item_${id}" 
+                data-excise-duty="${excise_duty_applicable}"
+                data-is-taxable="${is_taxable}">
+                <td class="pe-0">
                     <div class="d-flex align-items-center">
-                      <span class="fw-bold text-gray-800 cursor-pointer text-hover-primary fs-6 me-1">${title}</span>
+                        <span class="fw-bold text-gray-800 cursor-pointer text-hover-primary fs-6 me-1">${title}</span>
                     </div>
-                  </td>
-                  <td class="pe-0">
+                </td>
+                <td class="pe-0">
                     <div class="d-flex align-items-center">
-                      <input type="text" class="form-control" placeholder="Rate" id="id_bill_item_rate_${id}" name="id_bill_item_rate_${id}" value="${price}" onkeyup="handleRateChange(this)">
+                        <input type="text" class="form-control" placeholder="Rate" id="id_bill_item_rate_${id}" name="id_bill_item_rate_${id}" value="${price}" onkeyup="handleRateChange(this)">
                     </div>
-                  </td>
-                  <td class="pe-0">
+                </td>
+                <td class="pe-0">
                     <div class="position-relative d-flex align-items-center" data-kt-dialer="true" data-kt-dialer-min="1" data-kt-dialer-max="10" data-kt-dialer-step="1" data-kt-dialer-decimals="0">
-                      <button type="button" class="btn btn-icon btn-sm btn-light btn-icon-gray-400" data-kt-dialer-control="decrease" id="${id}"  onclick="handleQuantity(this,'decrease')">
-                        <span class="svg-icon svg-icon-3x">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="6" y="11" width="12" height="2" rx="1" fill="currentColor"></rect>
-                          </svg>
-                        </span>
-                      </button>
-                <input type="text" class="form-control border-0 text-center px-0 fs-3 fw-bold text-gray-800 w-30px" data-kt-dialer-control="input"   id="id_bill_item_quantity_${id}" onkeyup="handleQuantity(this,'set')" name="id_bill_item_quantity_${id}" value="${quantity}">
-                      <button type="button" class="btn btn-icon btn-sm btn-light btn-icon-gray-400" data-kt-dialer-control="increase" id="${id}" onclick="handleQuantity(this,'increase')">
-                        <span class="svg-icon svg-icon-3x">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect opacity="0.5" x="11" y="18" width="12" height="2" rx="1" transform="rotate(-90 11 18)" fill="currentColor"></rect>
-                            <rect x="6" y="11" width="12" height="2" rx="1" fill="currentColor"></rect>
-                          </svg>
-                        </span>
-                      </button>
+                        <button type="button" class="btn btn-icon btn-sm btn-light btn-icon-gray-400" data-kt-dialer-control="decrease" id="${id}" onclick="handleQuantity(this,'decrease')">
+                            <span class="svg-icon svg-icon-3x">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="6" y="11" width="12" height="2" rx="1" fill="currentColor"></rect>
+                                </svg>
+                            </span>
+                        </button>
+                        <input type="text" class="form-control border-0 text-center px-0 fs-3 fw-bold text-gray-800 w-30px" data-kt-dialer-control="input" id="id_bill_item_quantity_${id}" onkeyup="handleQuantity(this,'set')" name="id_bill_item_quantity_${id}" value="${quantity}">
+                        <button type="button" class="btn btn-icon btn-sm btn-light btn-icon-gray-400" data-kt-dialer-control="increase" id="${id}" onclick="handleQuantity(this,'increase')">
+                            <span class="svg-icon svg-icon-3x">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect opacity="0.5" x="11" y="18" width="12" height="2" rx="1" transform="rotate(-90 11 18)" fill="currentColor"></rect>
+                                    <rect x="6" y="11" width="12" height="2" rx="1" fill="currentColor"></rect>
+                                </svg>
+                            </span>
+                        </button>
                     </div>
-                  </td>
-                  <td class="text-end">
+                </td>
+                <td class="text-end">
                     <span class="fw-bold text-primary fs-2" data-kt-pos-element="item-total" id="id_bill_item_total_${id}">${total}</span>
-                  </td>
-                </tr>
-              `
-          }
-        })
-      return new_data
-  }
+                </td>
+            </tr>
+            `
+        }
+    })
+    return new_data
+}
   
 
   async function handleClick(e) {
