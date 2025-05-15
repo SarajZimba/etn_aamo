@@ -413,6 +413,7 @@ class MarkBillVoid(BillMixin, View):
             ServicedItem="Goods",
             quantity=quantity,
             reason=reason,
+            excise_duty_amount=bill.excise_duty_amount
         )
         return_entry.save()
         try:

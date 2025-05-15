@@ -197,9 +197,9 @@ class Bill(BaseModel):
         max_length=255, default="Cash", blank=True, null=True
     )
 
-    bill_items = models.ManyToManyField(BillItem, blank=False)
+    bill_items = models.ManyToManyField(BillItem, blank=False)      
     organization = models.ForeignKey(
-        "organization.Organization", on_delete=models.SET_NULL, null=True
+        "organization.Organization", on_delete=models.SET_NULL, null=True                                                                                   
     )
     branch = models.ForeignKey(
         "organization.Branch", on_delete=models.SET_NULL, null=True

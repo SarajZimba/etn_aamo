@@ -440,7 +440,8 @@ class MarkPurchaseVoid(IsAdminMixin, View):
             amount=entry_obj.amount,
             tax_amount=entry_obj.tax_amount,
             non_tax_purchase=entry_obj.non_tax_purchase,
-            reason = reason
+            reason = reason, 
+            excise_duty_amount = entry_obj.excise_duty_amount
         )
         
         
