@@ -1860,3 +1860,132 @@ class MobilePaymentTypeUpdate(MobilePaymentTypeMixin, UpdateView):
 
 class MobilePaymentTypeDelete(MobilePaymentTypeMixin, DeleteMixin, View):
     pass
+
+
+
+from django.views import View
+from django.shortcuts import redirect
+from django.contrib import messages
+from openpyxl import load_workbook
+from django.urls import reverse_lazy
+from decimal import Decimal
+import nepali_datetime
+from .models import TblSalesEntry
+
+
+from django.views import View
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from django.contrib import messages
+from decimal import Decimal
+from openpyxl import load_workbook
+from datetime import datetime
+import nepali_datetime
+
+from .models import TblSalesEntry  # Update with correct import path
+
+from django.views import View
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from django.contrib import messages
+from decimal import Decimal
+from openpyxl import load_workbook
+from datetime import datetime
+import nepali_datetime
+
+from .models import TblSalesEntry
+
+
+class SalesEntryUploadView(View):
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            messages.error(request, "No file uploaded.", extra_tags='danger')
+            return redirect(reverse_lazy('tblsalesentry_list'))
+
+        wb = load_workbook(file)
+        errors = []
+
+        def clean_decimal(cell_value):
+            try:
+                return Decimal(str(cell_value).replace(",", "")) if cell_value else Decimal(0)
+            except Exception:
+                raise ValueError(f"Invalid decimal value: {cell_value}")
+
+        def parse_excel_date(miti_raw, row_idx):
+            """Parses B.S. date from Excel either as datetime or string format."""
+            if isinstance(miti_raw, datetime):
+                d = miti_raw.date()
+                if d.year >= 2070:  # Assumed B.S.
+                    try:
+                        bs_date = nepali_datetime.date(d.year, d.month, d.day)
+                        return bs_date.to_datetime_date(), f"{d.year}/{d.month}/{d.day}"
+                    except Exception as e:
+                        raise ValueError(f"Row {row_idx}: Invalid B.S. datetime object: {d}")
+                else:
+                    raise ValueError(f"Row {row_idx}: Excel date appears to be in A.D., expected B.S.")
+            elif isinstance(miti_raw, str):
+                if miti_raw.lower() in ['b.s.', 'miti', 'date']:
+                    raise ValueError(f"Row {row_idx}: Skipped header row")
+                try:
+                    if '-' in miti_raw:
+                        parts = list(map(int, miti_raw.split('-')))
+                    else:
+                        parts = list(map(int, miti_raw.split('/')))
+                    bs_date = nepali_datetime.date(parts[0], parts[1], parts[2])
+                    return bs_date.to_datetime_date(), miti_raw
+                except Exception:
+                    raise ValueError(f"Row {row_idx}: Invalid B.S. date string format: {miti_raw}")
+            else:
+                raise ValueError(f"Row {row_idx}: Unsupported date type: {type(miti_raw)}")
+
+        for sheet in wb.worksheets:
+            for idx, row in enumerate(sheet.iter_rows(min_row=3), start=3):
+                try:
+                    miti_raw = row[0].value
+
+                    try:
+                        ad_date, miti_bs = parse_excel_date(miti_raw, idx)
+                    except Exception as e:
+                        errors.append(str(e))
+                        continue
+
+                    bill_no = str(row[1].value).strip() if row[1].value else ''
+                    customer_name = str(row[2].value).strip() if row[2].value else ''
+                    pan_no = str(row[3].value).strip() if row[3].value else ''
+
+                    amount = clean_decimal(row[7].value) + clean_decimal(row[8].value)
+                    no_tax_sales = clean_decimal(row[5].value)
+                    zero_tax_sales = clean_decimal(row[6].value)
+                    taxable_amount = clean_decimal(row[7].value)
+                    tax_amount = clean_decimal(row[8].value)
+
+                    TblSalesEntry.objects.create(
+                        bill_date=str(ad_date),
+                        miti=miti_bs,
+                        bill_no=bill_no,
+                        customer_name=customer_name,
+                        customer_pan=pan_no,
+                        amount=amount,
+                        NoTaxSales=no_tax_sales,
+                        ZeroTaxSales=zero_tax_sales,
+                        taxable_amount=taxable_amount,
+                        tax_amount=tax_amount
+                    )
+                    print(f"Row {idx}: Sales entry saved successfully.")
+
+                except Exception as e:
+                    errors.append(f"Row {idx}: {str(e)}")
+                    print(f"Row {idx} error: {str(e)}")
+
+        if errors:
+            messages.error(request, f"Some rows failed to upload:\n {errors}", extra_tags='danger')
+        else:
+            messages.success(request, "Sales entries uploaded successfully", extra_tags='success')
+
+        return redirect(reverse_lazy('tblsalesentry_list'))
+    
+
+
+
+

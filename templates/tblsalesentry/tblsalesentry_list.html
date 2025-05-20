@@ -7,6 +7,13 @@
 {% include 'components/title_bar.html' with title=' Sales Entry List '  %}
 <div class="card">
    {% include 'components/search_filter.html' with  search_title="Search SalesEntry" %} 
+
+   <form method="post" enctype="multipart/form-data" action="{% url 'sales_upload' %}">
+      {% csrf_token %}
+      <input type="file" name="file" accept=".xlsx,.xls" required>
+      <button type="submit">Upload</button>
+   </form>
+
    <div class="card-body pt-0">
       <!--begin::Table-->
       <div id="kt_customers_table_wrapper" class="dataTables_wrapper dt-bootstrap4 no-footer">

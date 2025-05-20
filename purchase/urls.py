@@ -31,3 +31,11 @@ path('asset/create/', AssetPurchaseCreate.as_view(), name='assetpurchase_create'
 path('asset/<int:pk>/update/', AssetPurchaseUpdate.as_view(), name='assetpurchase_update'),
 # path('asset/delete', AssetPurchaseDelete.as_view(), name='assetpurchase_delete'),
 ]
+
+
+
+from .views import PurchaseEntryUploadView
+
+urlpatterns += [
+    path('upload-purchase/', PurchaseEntryUploadView.as_view(), name='upload_purchase_entry'),
+]

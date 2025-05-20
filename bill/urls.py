@@ -174,3 +174,12 @@ urlpatterns += [
         path('mobilepaymenttype/<int:pk>/update/', MobilePaymentTypeUpdate.as_view(), name='mobile_payment_type_update'),
         path('mobilepaymenttype/delete', MobilePaymentTypeDelete.as_view(), name='mobile_payment_type_delete'),
 ]
+
+
+from django.urls import path
+from .views import SalesEntryUploadView  # adjust the path if the view is in a different module
+
+
+urlpatterns += [
+    path('upload-sales/', SalesEntryUploadView.as_view(), name='sales_upload'),
+]

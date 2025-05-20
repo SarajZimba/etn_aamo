@@ -7,6 +7,25 @@
 {% include 'components/title_bar.html' with title='Purchase Book' subtitle_date="True" %}
 <div class="card">
     {% include 'components/search_filter.html' with search_title="Search Purchase Book" export_url="purchase_book_list" object_list="true" format="xls" %}
+    <h2>Upload Purchase Entry Excel File</h2>
+
+    <form method="post" enctype="multipart/form-data" action="{% url 'upload_purchase_entry' %}">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="file">Select Excel File:</label>
+            <input type="file" name="file" id="file" accept=".xlsx" required class="form-control">
+        </div>
+        <br>
+        <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+
+    <!-- {% if messages %}
+        <ul class="mt-3">
+            {% for message in messages %}
+                <li class="alert alert-{{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %} -->
     <div class="card-body pt-0">
         <!--begin::Table-->
         <div id="kt_customers_table_wrapper" class="dataTables_wrapper dt-bootstrap4 no-footer">

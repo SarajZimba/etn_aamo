@@ -299,6 +299,10 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
                     # Debit the ledger for the product
                     self.create_subledgers(prod, item_total, ledger_id)
                     ProductPurchase.objects.create(product=prod, purchase=purchase_object, quantity=quantity, rate=rate, item_total=total)
+                    from organization.models import Branch
+                    from product.models import BranchStock
+                    BranchStock.objects.create(branch=Branch.objects.filter(is_central_billing=True, status=True, is_deleted=False).first(), product=prod, quantity=quantity)
+                    
                 except (ValueError, Product.DoesNotExist, AccountLedger.DoesNotExist):
                     pass
         
@@ -332,7 +336,9 @@ class ProductPurchaseCreateView(IsAdminMixin, CreateView):
                     prod = Product.objects.get(title__iexact=k)
                 self.create_subledgers(prod, item_total, ledger_id)
                 ProductPurchase.objects.create(product=prod, purchase=purchase_object, quantity=quantity, rate=rate, item_total=item_total)
-
+                from organization.models import Branch
+                from product.models import BranchStock
+                BranchStock.objects.create(branch=Branch.objects.filter(is_central_billing=True, status=True, is_deleted=False).first(), product=prod, quantity=quantity)
         TblpurchaseEntry.objects.create(
             bill_no=bill_no, bill_date=bill_date, pp_no=pp_no, vendor_name=vendor_name, vendor_pan=vendor_pan,
             item_name=item_name, quantity=total_quantity, amount=grand_total, tax_amount=tax_amount, non_tax_purchase=non_taxable_amount, excise_duty_amount=decimal.Decimal(excise_duty_amount)
@@ -772,4 +778,118 @@ class AssetPurchaseCreate(IsAdminMixin, CreateView):
     
 
 
+from django.views import View
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from django.contrib import messages
+from openpyxl import load_workbook
+from datetime import datetime
+from decimal import Decimal
+import nepali_datetime
+
+from purchase.models import TblpurchaseEntry
+
+
+class PurchaseEntryUploadView(View):
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            messages.error(request, "No file uploaded.", extra_tags='danger')
+            return redirect(reverse_lazy('tblpurchaseentry_list'))
+
+        wb = load_workbook(file)
+        errors = []
+
+        def clean_decimal(value):
+            try:
+                return Decimal(str(value).replace(",", "").strip()) if value else Decimal(0)
+            except Exception:
+                raise ValueError(f"Invalid decimal value: {value}")
+
+        def parse_excel_date(miti_raw, row_idx):
+            if isinstance(miti_raw, datetime):
+                d = miti_raw.date()
+                if d.year >= 2070:
+                    bs_date = nepali_datetime.date(d.year, d.month, d.day)
+                    return bs_date.to_datetime_date(), f"{d.year}/{d.month}/{d.day}"
+                else:
+                    raise ValueError(f"Row {row_idx}: Expected B.S. date, got A.D.")
+            elif isinstance(miti_raw, str):
+                if miti_raw.lower() in ['b.s.', 'miti', 'date']:
+                    raise ValueError(f"Row {row_idx}: Skipped header row")
+                try:
+                    if '-' in miti_raw:
+                        y, m, d = map(int, miti_raw.split('-'))
+                    else:
+                        y, m, d = map(int, miti_raw.split('/'))
+                    bs_date = nepali_datetime.date(y, m, d)
+                    return bs_date.to_datetime_date(), miti_raw
+                except Exception:
+                    raise ValueError(f"Row {row_idx}: Invalid B.S. date format: {miti_raw}")
+            else:
+                raise ValueError(f"Row {row_idx}: Unsupported date type: {type(miti_raw)}")
+
+        for sheet in wb.worksheets:
+            for idx, row in enumerate(sheet.iter_rows(min_row=3), start=3):
+                try:
+                    # B.S. Date and A.D. conversion
+                    miti_raw = row[0].value
+                    try:
+                        ad_date, bs_miti = parse_excel_date(miti_raw, idx)
+                    except Exception as e:
+                        errors.append(str(e))
+                        continue
+
+                    bill_no = str(row[1].value).strip() if row[1].value else ''
+                    vendor_name = str(row[2].value).strip() if row[2].value else ''
+                    vendor_pan = str(row[3].value).strip() if row[3].value else ''
+
+                    # Taxable Purchase
+                    taxable_purchase = clean_decimal(row[6].value)
+                    taxable_purchase_tax = clean_decimal(row[7].value)
+
+                    # Taxable Import
+                    taxable_import = clean_decimal(row[8].value)
+                    taxable_import_tax = clean_decimal(row[9].value)
+
+                    # Capital Purchase or Import and Tax (combined in last column)
+                    capital_purchase = clean_decimal(row[10].value)  
+                    capital_purchase_tax = clean_decimal(row[11].value) # last column (assumed tax included)
+
+                    # Calculate total amount = all taxable + tax values
+                    total_amount = (
+                        taxable_purchase + taxable_purchase_tax +
+                        taxable_import + taxable_import_tax +
+                        capital_purchase_tax + capital_purchase
+                    )
+
+                    tax_amount = (
+                        taxable_purchase_tax +
+                        taxable_import_tax + capital_purchase_tax
+                        # Note: If tax is separated in capital_purchase_tax, split accordingly
+                    )
+
+                    TblpurchaseEntry.objects.create(
+                        bill_date=str(ad_date),
+                        bill_no=bill_no,
+                        vendor_name=vendor_name,
+                        vendor_pan=vendor_pan,
+                        amount=total_amount,
+                        tax_amount=tax_amount,
+                        # Optional: add if needed
+                        non_tax_purchase=clean_decimal(row[5].value)  # Tax Free column
+                    )
+
+                    print(f"Row {idx}: Purchase entry saved successfully.")
+
+                except Exception as e:
+                    errors.append(f"Row {idx}: {str(e)}")
+                    print(f"Row {idx} error: {str(e)}")
+
+        if errors:
+            messages.error(request, f"Some rows failed:\n{errors}", extra_tags='danger')
+        else:
+            messages.success(request, "Purchase entries uploaded successfully.", extra_tags='success')
+
+        return redirect(reverse_lazy('purchase_book_list'))
 
